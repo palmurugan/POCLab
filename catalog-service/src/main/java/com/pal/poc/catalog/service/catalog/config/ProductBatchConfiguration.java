@@ -4,11 +4,14 @@ import com.pal.poc.catalog.service.catalog.domain.Product;
 import com.pal.poc.catalog.service.catalog.dto.ProductDTO;
 import com.pal.poc.catalog.service.catalog.listener.ProductImportJobCompletionListener;
 import com.pal.poc.catalog.service.catalog.mapper.ProductFieldSetMapper;
+import com.pal.poc.catalog.service.catalog.partition.ProductDataPartitioner;
 import com.pal.poc.catalog.service.catalog.processor.ProductItemProcessor;
 import com.pal.poc.catalog.service.catalog.writer.ProductItemWriter;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
 import org.springframework.batch.core.job.builder.JobBuilder;
+import org.springframework.batch.core.partition.PartitionHandler;
+import org.springframework.batch.core.partition.support.TaskExecutorPartitionHandler;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.builder.StepBuilder;
 import org.springframework.batch.item.ItemProcessor;
@@ -20,6 +23,9 @@ import org.springframework.batch.item.file.transform.DelimitedLineTokenizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.ClassPathResource;
+import org.springframework.core.task.TaskExecutor;
+import org.springframework.orm.jpa.JpaTransactionManager;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.transaction.PlatformTransactionManager;
 
 @Configuration
@@ -63,6 +69,61 @@ public class ProductBatchConfiguration {
     }
 
     /**
+     * Partition the product data
+     *
+     * @return ProductDataPartitioner
+     */
+    @Bean
+    public ProductDataPartitioner productDataPartitioner() {
+        return new ProductDataPartitioner();
+    }
+
+    /**
+     * Handle the partitioned data
+     *
+     * @param jobRepository JobRepository
+     * @return PartitionHandler
+     */
+    @Bean
+    public PartitionHandler partitionHandler(JobRepository jobRepository) {
+        TaskExecutorPartitionHandler taskExecutorPartitionHandler = new TaskExecutorPartitionHandler();
+        taskExecutorPartitionHandler.setGridSize(4);
+        taskExecutorPartitionHandler.setTaskExecutor(taskExecutor());
+        taskExecutorPartitionHandler.setStep(slaveStep(jobRepository));
+        return taskExecutorPartitionHandler;
+    }
+
+    /**
+     * Create the slave step to read, process and write the product data
+     *
+     * @param jobRepository JobRepository
+     * @return Step
+     */
+    @Bean
+    public Step slaveStep(JobRepository jobRepository) {
+        return new StepBuilder("slaveStep", jobRepository)
+                .<ProductDTO, Product>chunk(10, transactionManager())
+                .reader(productItemReader())
+                .processor(productItemProcessor())
+                .writer(productItemWriter())
+                .build();
+    }
+
+    /**
+     * Create the master step to partition the product data
+     *
+     * @param jobRepository JobRepository
+     * @return Step
+     */
+    @Bean
+    public Step masterStep(JobRepository jobRepository) {
+        return new StepBuilder("masterSTep", jobRepository).
+                partitioner(slaveStep(jobRepository).getName(), productDataPartitioner())
+                .partitionHandler(partitionHandler(jobRepository))
+                .build();
+    }
+
+    /**
      * Write the product data to the database
      *
      * @return ProductItemWriter
@@ -73,40 +134,41 @@ public class ProductBatchConfiguration {
     }
 
     /**
-     * Create the step to read, process and write the product data
+     * Create the job to import the product data
      *
      * @param jobRepository JobRepository
-     * @param transactionManager PlatformTransactionManager
-     * @param productItemReader ItemReader<ProductDTO>
-     * @param productItemProcessor ItemProcessor<ProductDTO, Product>
-     * @param productItemWriter ProductItemWriter
-     * @return Step
+     * @param listener      ProductImportJobCompletionListener
+     * @return Job
      */
-    @Bean
-    public Step step1(JobRepository jobRepository, PlatformTransactionManager transactionManager,
-                      ItemReader<ProductDTO> productItemReader, ItemProcessor<ProductDTO, Product> productItemProcessor,
-                      ProductItemWriter productItemWriter) {
-        return new StepBuilder(FIRST_STEP, jobRepository)
-                .<ProductDTO, Product>chunk(10, transactionManager)
-                .reader(productItemReader)
-                .processor(productItemProcessor)
-                .writer(productItemWriter)
+    @Bean("productImportJob")
+    public Job productImportJob(JobRepository jobRepository, ProductImportJobCompletionListener listener) {
+        return new JobBuilder(JOB_NAME, jobRepository)
+                .listener(listener)
+                .start(masterStep(jobRepository))
                 .build();
     }
 
     /**
-     * Create the job to import the product data
+     * Create the task executor
      *
-     * @param jobRepository JobRepository
-     * @param step1 Step
-     * @param listener ProductImportJobCompletionListener
-     * @return Job
+     * @return TaskExecutor
      */
-    @Bean("productImportJob")
-    public Job productImportJob(JobRepository jobRepository, Step step1, ProductImportJobCompletionListener listener) {
-        return new JobBuilder(JOB_NAME, jobRepository)
-                .listener(listener)
-                .start(step1)
-                .build();
+    @Bean
+    public TaskExecutor taskExecutor() {
+        ThreadPoolTaskExecutor taskExecutor = new ThreadPoolTaskExecutor();
+        taskExecutor.setMaxPoolSize(4);
+        taskExecutor.setCorePoolSize(4);
+        taskExecutor.setQueueCapacity(4);
+        return taskExecutor;
+    }
+
+    /**
+     * Create the transaction manager
+     *
+     * @return PlatformTransactionManager
+     */
+    @Bean
+    public PlatformTransactionManager transactionManager() {
+        return new JpaTransactionManager();
     }
 }
