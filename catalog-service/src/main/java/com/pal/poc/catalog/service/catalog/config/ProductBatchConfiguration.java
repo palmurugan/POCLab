@@ -2,7 +2,9 @@ package com.pal.poc.catalog.service.catalog.config;
 
 import com.pal.poc.catalog.service.catalog.domain.Product;
 import com.pal.poc.catalog.service.catalog.dto.ProductDTO;
+import com.pal.poc.catalog.service.catalog.error.ExceptionSkipPolicy;
 import com.pal.poc.catalog.service.catalog.listener.ProductImportJobCompletionListener;
+import com.pal.poc.catalog.service.catalog.listener.StepSkipListener;
 import com.pal.poc.catalog.service.catalog.mapper.ProductFieldSetMapper;
 import com.pal.poc.catalog.service.catalog.partition.ProductDataPartitioner;
 import com.pal.poc.catalog.service.catalog.processor.ProductItemProcessor;
@@ -43,7 +45,7 @@ public class ProductBatchConfiguration {
     @Bean
     public ItemReader<ProductDTO> productItemReader() {
         FlatFileItemReader<ProductDTO> reader = new FlatFileItemReader<>();
-        reader.setResource(new ClassPathResource("data/product_catalog_full.csv"));
+        reader.setResource(new ClassPathResource("data/product_catalog_mini.csv"));
         reader.setLinesToSkip(1); // Skip the header line
         reader.setRecordSeparatorPolicy(new DefaultRecordSeparatorPolicy());
         reader.setLineMapper(new DefaultLineMapper<ProductDTO>() {{
@@ -87,14 +89,14 @@ public class ProductBatchConfiguration {
     @Bean
     public PartitionHandler partitionHandler(JobRepository jobRepository) {
         TaskExecutorPartitionHandler taskExecutorPartitionHandler = new TaskExecutorPartitionHandler();
-        taskExecutorPartitionHandler.setGridSize(4);
+        taskExecutorPartitionHandler.setGridSize(3);
         taskExecutorPartitionHandler.setTaskExecutor(taskExecutor());
         taskExecutorPartitionHandler.setStep(slaveStep(jobRepository));
         return taskExecutorPartitionHandler;
     }
 
     /**
-     * Create the slave step to read, process and write the product data
+     * Create the slave step to process the product data
      *
      * @param jobRepository JobRepository
      * @return Step
@@ -106,6 +108,9 @@ public class ProductBatchConfiguration {
                 .reader(productItemReader())
                 .processor(productItemProcessor())
                 .writer(productItemWriter())
+                .faultTolerant()
+                .listener(stepSkipListener())
+                .skipPolicy(new ExceptionSkipPolicy())
                 .build();
     }
 
@@ -170,5 +175,15 @@ public class ProductBatchConfiguration {
     @Bean
     public PlatformTransactionManager transactionManager() {
         return new JpaTransactionManager();
+    }
+
+    /**
+     * Create the step skip listener
+     *
+     * @return StepSkipListener
+     */
+    @Bean
+    public StepSkipListener stepSkipListener() {
+        return new StepSkipListener();
     }
 }

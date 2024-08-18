@@ -18,7 +18,7 @@ public class ProductDataPartitioner implements Partitioner {
         int min = 1;
 
         // Hardcoded for the Part-2; In real-world, this should be calculated dynamically
-        int max = 12461;
+        int max = 30; // 12461
         int targetSize = (max - min) / gridSize + 1;//500
 
         // Map to store the partitions
