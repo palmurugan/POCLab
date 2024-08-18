@@ -2,6 +2,7 @@ package com.pal.poc.catalog.service.catalog.processor;
 
 import com.pal.poc.catalog.service.catalog.domain.Product;
 import com.pal.poc.catalog.service.catalog.dto.ProductDTO;
+import com.pal.poc.catalog.service.catalog.error.BrandNotFoundException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.batch.item.ItemProcessor;
@@ -27,6 +28,10 @@ public class ProductItemProcessor implements ItemProcessor<ProductDTO, Product> 
     public Product process(ProductDTO productDTO) throws Exception {
         if (Objects.nonNull(productDTO)) {
             log.debug("Processing data for ProductDTO: {}", productDTO);
+            if (productDTO.productBrand() == null || productDTO.productBrand().isEmpty()) {
+                throw new BrandNotFoundException("Brand not found for product: " + productDTO.productName());
+            }
+
             return new Product(productDTO.productId(), productDTO.productName(), productDTO.productBrand(),
                     productDTO.price(), productDTO.description(),
                     ADMIN_USER, java.time.LocalDateTime.now(), ACTIVE_STATUS);
