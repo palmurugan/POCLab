@@ -1,0 +1,21 @@
+version: "3.8"  # Specify the Docker Compose version
+
+services:
+  keycloak:
+    image: quay.io/keycloak/keycloak:latest  # Use a specific version for production (recommended)
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://192.168.1.41:5432/dynazy?currentSchema=keycloak
+      KC_DB_USERNAME: postgres
+      KC_DB_PASSWORD: postgres
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: keycloak  # Set a strong admin password
+    ports:
+      - 8080:8080  # Map container port 8080 to host port 8080 (optional)
+    volumes:
+      - ./keywind.jar:/opt/keycloak/providers/keywind.jar
+    command:
+      - start-dev
+
+volumes:
+  keycloak_data:  # Optional volume to persist Keycloak data
