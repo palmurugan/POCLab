@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<order>
+    <orderId>12345</orderId>
+    <customerId>customer123</customerId>
+    <orderDate>2023-12-25</orderDate>
+    <shippingAddress>
+        <streetAddress>123 Main Street</streetAddress>
+        <city>Anytown</city>
+        <state>CA</state>
+        <postalCode>12345</postalCode>
+        <country>USA</country>
+    </shippingAddress>
+    <billingAddress>
+        <streetAddress>456 Elm Street</streetAddress>
+        <city>Anothertown</city>
+        <state>NY</state>
+        <postalCode>54321</postalCode>
+        <country>USA</country>
+    </billingAddress>
+    <items>
+        <item>
+            <productId>101</productId>
+            <productName>Product A</productName>
+            <quantity>2</quantity>
+            <price>19.99</price>
+        </item>
+        <item>
+            <productId>102</productId>
+            <productName>Product B</productName>
+            <quantity>1</quantity>
+            <price>29.99</price>
+        </item>
+    </items>
+    <payment>
+        <paymentMethod>CreditCard</paymentMethod>
+        <cardNumber>1234567890123456</cardNumber>
+        <expirationDate>12/25</expirationDate>
+        <cvv>123</cvv>
+    </payment>
+    <shippingMethod>Standard</shippingMethod>
+    <shippingCost>5.99</shippingCost>
+    <orderTotal>65.97</orderTotal>
+    <orderStatus>Pending</orderStatus>
+</order>
