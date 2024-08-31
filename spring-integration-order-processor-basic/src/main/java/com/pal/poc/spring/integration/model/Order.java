@@ -16,9 +16,9 @@ public class Order {
 
     private String orderId;
 
-    private Long customerId;
+    private String customerId;
 
-    private LocalDate orderDate;
+    private String orderDate;
 
     private Set<OrderItem> items = new HashSet<>();
 
@@ -26,7 +26,7 @@ public class Order {
 
     private Address billingAddress;
 
-    private LocalDate expirationDate;
+    private String expirationDate;
 
     private String cvv;
 
